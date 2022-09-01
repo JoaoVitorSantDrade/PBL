@@ -6,12 +6,18 @@ from threading import Thread
 import time
 
 if __name__ == '__main__':
-    servidor = Socket.Server(Config.HOST, Config.PORT)
+
     cliente = Socket.Client(Config.HOST,Config.PORT)
-    hidrante = Hidrante.Hidrante(10,54,30)
-    Thread(target=servidor.rodar_servidor).start()
+    hidrante1 = Hidrante.Hidrante(10,54,30)
+    hidrante2 = Hidrante.Hidrante(26,21,45)
+    hidrante3 = Hidrante.Hidrante(17,14,23)
+
     time.sleep(2)
-    Thread(target=cliente.connect(hidrante)).start()
-    time.sleep(4)
-    Thread(target=cliente.connect(hidrante)).start()
+
+    Thread(target=cliente.connect(hidrante1)).start()
+    Thread(target=cliente.connect(hidrante2)).start()
+    Thread(target=cliente.connect(hidrante3)).start()
+
+    time.sleep(3)
+    Thread(target=cliente.connect(hidrante2)).start()
 

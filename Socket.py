@@ -1,9 +1,9 @@
+from asyncio.windows_events import NULL
 import socket
 import Config
 import time
 import Hidrante
 import json
-import requests
 
 class Client:
     host = Config.HOST
@@ -37,9 +37,14 @@ class Client:
             amount_received = 0
             amount_expected = len(message)
 
+            dado = NULL
             while amount_received < amount_expected:
                 dado = sock.recv(Config.PACKET_SIZE)
                 amount_received += len(dado)
+
+            dado = json.loads(dado)
+            print("Recebido: %s" %dado) #Cliente recebendo dados do servidor
+
 
         except Exception as e:
             print("Erro no envio da mensagem: %s" %str(e))
@@ -74,14 +79,19 @@ class Server:
         while True:
             try:
                 print ("Aguardando mensagens de clientes...")
-                client, address = sock.accept()
-                data = client.recv(Config.PAYLOAD_SIZE)            
-                if data:
-                    print ("Dado: %s" %data)
+                client, address = sock.accept() #Espera receber algum pacote
+                data = client.recv(Config.PAYLOAD_SIZE)        
+                if data:                                       
                     client.send(data)
+                    data = json.loads(data) 
                     print ("Enviou %s bytes para o endereço %s" % (data, address))
                     # end connection
-                    timelapsed = time.time()
                     client.close()
-            except requests.Timeout as err:
+            except Exception as err: #ainda nao vai
                 print("O tempo de espera do servidor foi excedido!")
+                break
+
+
+if __name__ == '__main__':
+    servidor = Server(Config.HOST, Config.PORT)
+    servidor.rodar_servidor()
