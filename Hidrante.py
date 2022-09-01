@@ -4,10 +4,11 @@ import Config
 class Hidrante:
     id = 1000
 
-    def __init__(self,consumo,vazao,vazamento):
+    def __init__(self,consumo,vazao,vazamento,fechado):
         self.consumo = consumo
         self.vazao = vazao
         self.vazamento = vazamento
+        self.fechado = fechado
         self.id = Hidrante.id
         Hidrante.id = Hidrante.id + 1
 
@@ -25,7 +26,9 @@ class Hidrante:
             "ID": self.id,
             "consumo": self.consumo,
             "vazao": self.vazao,
-            "vazamento": self.vazamento
+            "vazamento": self.vazamento,
+            "fechado": self.fechado
         }
         x = json.dumps(x)
+        #print(x)
         return x

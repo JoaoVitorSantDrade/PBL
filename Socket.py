@@ -1,9 +1,10 @@
 from asyncio.windows_events import NULL
 import socket
 import Config
-import time
-import Hidrante
 import json
+import re
+
+from Hidrante import Hidrante
 
 class Client:
     host = Config.HOST
@@ -53,11 +54,11 @@ class Client:
             print("Fechando conexão com o servidor")
             sock.close
 
-
 class Server:
     host = Config.HOST
     port = Config.PORT
     payload_size = Config.PAYLOAD_SIZE
+    hid_list = {}
 
     def __init__(self,host,port):
         self.host = host
@@ -81,15 +82,57 @@ class Server:
                 print ("Aguardando mensagens de clientes...")
                 client, address = sock.accept() #Espera receber algum pacote
                 data = client.recv(Config.PAYLOAD_SIZE)        
-                if data:                                       
+                if data:
                     client.send(data)
-                    data = json.loads(data) 
-                    print ("Enviou %s bytes para o endereço %s" % (data, address))
-                    # end connection
+                    data = data.decode()             
+                    data = json.dumps(data)                        
+                    Server.add_to_list(self,data)
+                    #print ("Enviou %s para o endereço %s" % (data, address))
                     client.close()
+                    # end connection
             except Exception as err: #ainda nao vai
-                print("O tempo de espera do servidor foi excedido!")
+                print("O tempo de espera do servidor foi excedido! - %s" % err)
                 break
+
+    def add_to_list(self,o):
+        print(json.decoder(o))
+        resp = ServerResponse(o[0],o[1],o[2],o[3],o[4])
+        print("jason da resposta: %s" % resp.getJson())
+        #Server.hid_list[ID] = resp.getJson()
+        #print(Server.hid_list)
+
+    def getNumberFromString(self,string):
+        print(string)
+        number = int(''.join(filter(str.isdigit, string )))
+        return number
+
+class ServerResponse:
+
+    def __init__(self,id,vazao,consumo,vazamento,fechado):
+        self.id = id
+        self.vazao = vazao
+        self.consumo = consumo
+        self.vazamento = vazamento
+        self.fechado = fechado
+        print(id)
+
+    def atualizar(self,id,consumo,vazao,vazamento,fechado):
+        self.id = id
+        self.vazao = vazao
+        self.consumo = consumo
+        self.vazamento = vazamento
+        self.fechado = fechado
+
+    def getJson(self):
+        x = {
+            "ID": self.id,
+            "consumo": self.consumo,
+            "vazao": self.vazao,
+            "vazamento": self.vazamento,
+            "fechado": self.fechado
+        }
+        x = json.dumps(x)
+        return x
 
 
 if __name__ == '__main__':
