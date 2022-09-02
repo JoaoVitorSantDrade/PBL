@@ -2,7 +2,7 @@ from asyncio.windows_events import NULL
 import socket
 import Config
 import json
-import re
+import requests
 
 from Hidrante import Hidrante
 
@@ -31,7 +31,6 @@ class Client:
 
         try:
             x = Hidrante.getDadoJSON()
-            x = json.dumps(x)
             message = x #Config.TEST_MESSAGE
             sock.sendall(message.encode())
 
@@ -43,7 +42,8 @@ class Client:
                 dado = sock.recv(Config.PACKET_SIZE)
                 amount_received += len(dado)
 
-            dado = json.loads(dado)
+            dado = dado.decode() # Decodifica o Json (string) recebido do servidor
+            dado = json.loads(dado) # Carrega a string em um Json
             print("Recebido: %s" %dado) #Cliente recebendo dados do servidor
 
 
@@ -81,59 +81,22 @@ class Server:
             try:
                 print ("Aguardando mensagens de clientes...")
                 client, address = sock.accept() #Espera receber algum pacote
-                data = client.recv(Config.PAYLOAD_SIZE)        
+                data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
-                    client.send(data)
-                    data = data.decode()             
-                    data = json.dumps(data)                        
-                    Server.add_to_list(self,data)
-                    #print ("Enviou %s para o endereço %s" % (data, address))
+                    client.send(data)  #Reenviamos os bytes do Json
+                    data = data.decode() #Decodificamos os bytes utf-8
+                    data = json.loads(data) #Carregamos os bytes dentro de um Json
+                    Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
                     client.close()
                     # end connection
             except Exception as err: #ainda nao vai
                 print("O tempo de espera do servidor foi excedido! - %s" % err)
+                print(self.hid_list)
                 break
 
-    def add_to_list(self,o):
-        print(json.decoder(o))
-        resp = ServerResponse(o[0],o[1],o[2],o[3],o[4])
-        print("jason da resposta: %s" % resp.getJson())
-        #Server.hid_list[ID] = resp.getJson()
-        #print(Server.hid_list)
-
-    def getNumberFromString(self,string):
-        print(string)
-        number = int(''.join(filter(str.isdigit, string )))
-        return number
-
-class ServerResponse:
-
-    def __init__(self,id,vazao,consumo,vazamento,fechado):
-        self.id = id
-        self.vazao = vazao
-        self.consumo = consumo
-        self.vazamento = vazamento
-        self.fechado = fechado
-        print(id)
-
-    def atualizar(self,id,consumo,vazao,vazamento,fechado):
-        self.id = id
-        self.vazao = vazao
-        self.consumo = consumo
-        self.vazamento = vazamento
-        self.fechado = fechado
-
-    def getJson(self):
-        x = {
-            "ID": self.id,
-            "consumo": self.consumo,
-            "vazao": self.vazao,
-            "vazamento": self.vazamento,
-            "fechado": self.fechado
-        }
-        x = json.dumps(x)
-        return x
-
+    def add_to_list(self,Json):
+        Server.hid_list[Json["ID"]] = json.dumps(Json) # Salva o Json em formato string numa Lista
+        
 
 if __name__ == '__main__':
     servidor = Server(Config.HOST, Config.PORT)
