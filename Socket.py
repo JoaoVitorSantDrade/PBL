@@ -84,6 +84,7 @@ class Server:
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
                     client.send(data)  #Reenviamos os bytes do Json
+                    print("Mensagem recebida!")
                     data = data.decode() #Decodificamos os bytes utf-8
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
                     Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
