@@ -2,13 +2,12 @@ from asyncio.windows_events import NULL
 import socket
 import Config
 import json
-import requests
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from Hidrante import Hidrante
 
 class Client:
-    host = Config.HOST
+    host = Config.CLIENT_HOST
     port = Config.PORT
     payload_size = Config.PAYLOAD_SIZE
 
@@ -55,20 +54,6 @@ class Client:
             print("Fechando conexão com o servidor")
             sock.close
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        message = "Isso é uma chamada usando GET"
-        self.wfile.write(bytes(message, "utf8"))
-
-    def do_POST(self):
-        self.send_response(200)
-        self.send_header('Content-Type','application/json')
-        self.end_headers
-
-
 class Server:
     host = Config.HOST
     port = Config.PORT
@@ -100,23 +85,14 @@ class Server:
                 if data:
                     client.send(data)  #Reenviamos os bytes do Json
                     print("Mensagem recebida!")
-                    data = data.decode() #Decodificamos os bytes utf-8
+                    data = data.decode() #Decodificamos os bytes utf-8 (string)
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
                     Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
                     client.close()
-                    # end connection
-                    with open('hidrometro.json','w') as file:
-                        json.dump(self.hid_list,file)
-                        #https://flaviocopes.com/python-http-server/
-                        #https://stackoverflow.com/questions/28240464/python-http-server-send-json-response
-                        #https://gist.github.com/nitaku/10d0662536f37a087e1b
-                        #https://stackoverflow.com/questions/45151473/returning-json-using-a-get-request-from-server
-                        #Usar o dump pra salvar todos os hidrantes num arquivo Json unico. esse arquivo json unico é oq vai pra web
+                    #https://www.internalpointers.com/post/making-http-requests-sockets-python
             except Exception as err: 
                 print("O tempo de espera do servidor foi excedido! - %s" % err)
                 print(self.hid_list)
-                with HTTPServer(('', 8000), handler) as server:
-                    server.serve_forever()
                 break
 
     def add_to_list(self,Json):
