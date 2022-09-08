@@ -21,6 +21,9 @@ class Hidrante:
     def AlterarVazamento(self,vazamento):
         self.vazamento = vazamento
 
+    def AlterarFechado(self,fechado):
+        self.fechado = fechado
+        
     def getDadoJSON(self):
         x = {
             "ID": self.id,
