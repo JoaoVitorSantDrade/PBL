@@ -24,6 +24,21 @@ class Hidrante:
     def AlterarFechado(self,fechado):
         self.fechado = fechado
         
+    def getConsumo(self):
+        return self.consumo
+
+    def getVazao(self):
+        return self.vazao
+
+    def getVazamento(self):
+        return self.vazamento
+
+    def getFechado(self):
+        return self.fechado
+
+    def getID(self):
+        return self.id
+        
     def getDadoJSON(self):
         x = {
             "ID": self.id,
@@ -35,3 +50,9 @@ class Hidrante:
         x = json.dumps(x)
         #print(x)
         return x
+
+    def setDadoJson(self,Json):
+        self.consumo = Json["consumo"]
+        self.vazao = Json["vazao"]
+        self.vazamento = Json["vazamento"]
+        self.fechado = Json["fechado"]

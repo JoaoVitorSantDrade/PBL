@@ -1,14 +1,12 @@
-from asyncio.windows_events import NULL
 import socket
 import Config
 import json
 from datetime import datetime
 import codecs
 from Hidrante import Hidrante
+import asyncio
 
 class Client:
-    host = Config.HOST
-    port = Config.PORT
     payload_size = Config.PAYLOAD_SIZE
 
     def __init__(self,host,port):
@@ -19,17 +17,58 @@ class Client:
         self.host = host
         self.port = port
 
-    def connect(self, Hidrante):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def connect_sock(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #TCP
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         servidor = (self.host, self.port)
         print("Cliente conectando no endereço %s:%s " % servidor)
-        try:
-            sock.connect(servidor)
-        except Exception as e:
-            print("Erro na conexão: %s" %str(e))
+        return sock, servidor
 
+    def connect_to_server(self,servidor,sock):
+        sock.settimeout(10)
+        sock.connect(servidor)
+        sock.settimeout(None)
+        return sock
+
+    def connect_tcp_hidrometro(self, Hidrante):
+
+        if Hidrante.fechado == False:
+            sock,servidor = Client.connect_sock(self)
+            try:
+                
+                sock = Client.connect_to_server(self,servidor,sock)
+                x = Hidrante.getDadoJSON()
+                message = x #Config.TEST_MESSAGE
+                sock.sendall(message.encode())
+
+                amount_received = 0
+                amount_expected = len(message)
+
+                dado = None
+                while amount_received < amount_expected:
+                    dado = sock.recv(Config.PACKET_SIZE)
+                    amount_received += len(dado)
+
+                dado = dado.decode() # Decodifica o Json (string) recebido do servidor
+                dado = json.loads(dado) # Carrega a string em um Json
+
+
+            except ConnectionError as e:
+                print("Erro na conexão: %s" %str(e))
+            except TimeoutError as te:
+                print("Conexão não foi estabelecida em tempo adequado")
+            finally:
+                print("Fechando conexão com o servidor")
+                sock.close
+        else:
+            print("Hidrometro fechado - Conexão não estabelecida")
+
+    def connect_tcp_nuvem(self, Hidrante):
+        sock,servidor = Client.connect_sock(self)
         try:
+
+            sock = Client.connect_to_server(self,servidor,sock)
+
             x = Hidrante.getDadoJSON()
             message = x #Config.TEST_MESSAGE
             sock.sendall(message.encode())
@@ -37,7 +76,7 @@ class Client:
             amount_received = 0
             amount_expected = len(message)
 
-            dado = NULL
+            dado = None
             while amount_received < amount_expected:
                 dado = sock.recv(Config.PACKET_SIZE)
                 amount_received += len(dado)
@@ -46,10 +85,10 @@ class Client:
             dado = json.loads(dado) # Carrega a string em um Json
             print("Recebido: %s" %dado) #Cliente recebendo dados do servidor
 
-
-        except Exception as e:
-            print("Erro no envio da mensagem: %s" %str(e))
-
+        except ConnectionError as e:
+            print("Erro na conexão: %s" %str(e))
+        except TimeoutError as te:
+            print("Conexão não foi estabelecida em tempo adequado")
         finally:
             print("Fechando conexão com o servidor")
             sock.close
@@ -57,11 +96,16 @@ class Client:
 class Server:
     payload_size = Config.PAYLOAD_SIZE
     hid_list = {}
+    ip_list = []
 
-    def serverTCP(self):
+    def __init__(self,host,port):
+        self.host = host
+        self.port = port
+
+    def serverTCP_hidrometro(self,hidrante): #Receber requisições da Nuvem
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-        servidor = (Config.HOST, Config.PORT)
+        servidor = (self.host, self.port)
         sock.bind(servidor)
 
         print("Servidor iniciando no endereço %s:%s" % servidor)
@@ -73,10 +117,43 @@ class Server:
                 client, address = sock.accept() #Espera receber algum pacote
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
+                    client_adress = client.getpeername()
                     client.send(data)  #Reenviamos os bytes do Json
                     data = data.decode() #Decodificamos os bytes utf-8
-                    print("Mensagem recebida!: %s" % data)
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
+                    client_ip = {"IP":client_adress[0]}
+                    data.update(client_ip)
+                    print(data)
+                    hidrante.setDadoJson(data)
+                    #Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
+                    client.close()
+            
+            except TimeoutError as errt: 
+                print("O tempo de espera do servidor foi excedido! - %s" % errt)
+                print(self.hid_list)
+                break
+
+    def serverTCP_nuvem(self): #Receber requisições dos Hidrometros
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        servidor = (self.host, self.port)
+        sock.bind(servidor)
+
+        print("Servidor iniciando no endereço %s:%s" % servidor)
+        sock.listen(Config.SERVER_LISTEN)
+        sock.settimeout(Config.TIMEOUT)
+        while True:
+            try:
+                print ("Aguardando mensagens de clientes...")
+                client, address = sock.accept() #Espera receber algum pacote
+                data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
+                if data:
+                    client_adress = client.getpeername()
+                    client.send(data)  #Reenviamos os bytes do Json
+                    data = data.decode() #Decodificamos os bytes utf-8
+                    data = json.loads(data) #Carregamos os bytes dentro de um Json
+                    print(client_adress)
+                    #data.update()
                     Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
                     client.close()
             
@@ -121,10 +198,11 @@ class Server:
         return ''.join((line + '\n') for line in s.splitlines())
 
     def add_to_list(self,Json):
-        if Server.hid_list[Json["ID"]] == NULL:
-            Server.hid_list[Json["ID"]] = json.dumps(Json) # Salva o Json em formato string numa Lista
+        Server.hid_list[Json["ID"]] = json.dumps(Json) # Salva o Json em formato string numa Lista
         
 
 if __name__ == '__main__':
-    servidor = Server()
-    servidor.http_serverTCP()
+    servidor = Server(Config.HOST,Config.PORT)
+    asyncio.run(
+        servidor.serverTCP()
+    ) 
