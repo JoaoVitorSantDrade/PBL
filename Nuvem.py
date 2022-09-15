@@ -9,7 +9,7 @@ class Hidrometro:
         self.hidrante = hidrante
         self.delay = delay
 
-    def NuvemServer(self,host_server,port_server): #Recebe dados do Hidrometro
+    def NuvemServer(self,host_server,port_server): #Recebe dados do Hidrometro - recebe dados do TCP_hidrometro
         servidor_hidrometro = Socket.Server(host_server,port_server)
         self.Server = servidor_hidrometro
         servidor_hidrometro.serverTCP()
@@ -22,18 +22,11 @@ class Hidrometro:
             print("Conexão finalzada!")
             time.sleep(self.delay)
 
-    def NuvemServerHTTP(self,host_server,port_server): #Recebe requisições e responde
+    def NuvemServerHTTP(self,host_server,port_server): #Recebe requisições e responde - recebe dados do HTTP (Nossa API)
         servidor_hidrometro = Socket.Server(host_server,port_server)
         self.Server = servidor_hidrometro
         servidor_hidrometro.serverTCP()
 
-    def NuvemClientHTTP(self,host_to_connect,port_to_connect): # Não sei
-        while True:
-            print("Conexão iniciada")
-            conexao_tcp = Socket.Client(host_to_connect,port_to_connect)
-            conexao_tcp.connect_tcp(self.hidrante)
-            print("Conexão finalzada!")
-            time.sleep(self.delay)
             
     def AlterarDelay(self,delay):
         self.delay = delay

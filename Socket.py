@@ -114,18 +114,14 @@ class Server:
         while True:
             try:
                 print ("Aguardando mensagens de clientes...")
-                client, address = sock.accept() #Espera receber algum pacote
+                client,adress = sock.accept() #Espera receber algum pacote
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
-                    client_adress = client.getpeername()
+
                     client.send(data)  #Reenviamos os bytes do Json
                     data = data.decode() #Decodificamos os bytes utf-8
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
-                    client_ip = {"IP":client_adress[0]}
-                    data.update(client_ip)
-                    print(data)
                     hidrante.setDadoJson(data)
-                    #Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
                     client.close()
             
             except TimeoutError as errt: 
@@ -145,16 +141,17 @@ class Server:
         while True:
             try:
                 print ("Aguardando mensagens de clientes...")
-                client, address = sock.accept() #Espera receber algum pacote
+                client,adress = sock.accept() #Espera receber algum pacote
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
                     client_adress = client.getpeername()
                     client.send(data)  #Reenviamos os bytes do Json
                     data = data.decode() #Decodificamos os bytes utf-8
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
-                    print(client_adress)
-                    #data.update()
+                    client_ip = {"IP":client_adress[0]}
+                    data.update(client_ip)
                     Server.add_to_list(self,data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
+                    print(Server.hid_list)
                     client.close()
             
             except TimeoutError as errt: 

@@ -2,7 +2,7 @@ import json
 import Config
 
 class Hidrante:
-    id = 1000
+    id = 0
 
     def __init__(self,consumo,vazao,vazamento,fechado):
         self.consumo = consumo

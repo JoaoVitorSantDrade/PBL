@@ -10,12 +10,12 @@ class Hidrometro:
         self.hidrante = hidrante
         self.delay = delay
 
-    def HidrometroServer(self,host_server,port_server): #Recebe os dados do servidor
+    def HidrometroServer(self,host_server,port_server): #Recebe os dados do servidor (Nuvem)
         servidor_hidrometro = Socket.Server(host_server,port_server)
         self.Server = servidor_hidrometro
         servidor_hidrometro.serverTCP_hidrometro(self.hidrante)
     
-    def HidrometroClient(self,host_to_connect,port_to_connect): #Envia os dados para o servidor
+    def HidrometroClient(self,host_to_connect,port_to_connect): #Envia os dados para o servidor (Nuvem)
         while True:
             print("Conexão iniciada")
             conexao_tcp = Socket.Client(host_to_connect,port_to_connect)
