@@ -1,3 +1,4 @@
+from shutil import ExecError
 import Hidrante
 import Socket
 import Config
@@ -41,7 +42,11 @@ def main():
         server_process = Process(target=hidrometro.HidrometroClient, args=(connect_host,connect_port,)).start()
         client_process = Process(target=hidrometro.HidrometroServer, args=(ip_host,ip_port,)).start()
     except KeyboardInterrupt:
-        pass 
+        server_process.join()
+        client_process.join()
+        print("Fechando os processos")   
+    except Exception as Err:
+        print(Err)
     finally:
         print("Fechando o programa")   
 
