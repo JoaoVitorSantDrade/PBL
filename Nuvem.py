@@ -1,55 +1,49 @@
+from shutil import ExecError
 import Hidrante
 import Socket
 import Config
-from multiprocessing import Process
+from multiprocessing import Process, Value
 import time
-class Hidrometro:
+import os
+
+class Nuvem:
     
-    def __init__(self,hidrante,delay):
-        self.hidrante = hidrante
-        self.delay = delay
+    def __init__(self):
+        self.Server = None
 
-    def NuvemServer(self,host_server,port_server): #Recebe dados do Hidrometro - recebe dados do TCP_hidrometro
-        servidor_hidrometro = Socket.Server(host_server,port_server)
-        self.Server = servidor_hidrometro
-        servidor_hidrometro.serverTCP()
-    
-    def NuvemClient(self,host_to_connect,port_to_connect): #Envia dados para hidrometros
-        while True:
-            print("Conexão iniciada")
-            conexao_tcp = Socket.Client(host_to_connect,port_to_connect)
-            conexao_tcp.connect_tcp(self.hidrante)
-            print("Conexão finalzada!")
-            time.sleep(self.delay)
+    def NuvemServer(self,host_server,port_server,num_hidrometros): #Recebe dados do Hidrometro - recebe dados do TCP_hidrometro
+        if(self.Server == None):
+            servidor_nuvem = Socket.Server(host_server,port_server)
+            self.Server = servidor_nuvem
+        self.Server.serverTCP_nuvem(num_hidrometros)
 
-    def NuvemServerHTTP(self,host_server,port_server): #Recebe requisições e responde - recebe dados do HTTP (Nossa API)
-        servidor_hidrometro = Socket.Server(host_server,port_server)
-        self.Server = servidor_hidrometro
-        servidor_hidrometro.serverTCP()
+    def NuvemServerHTTP(self,host_server,port_server,num_hidrometros): #Recebe requisições e responde - recebe dados do HTTP (Nossa API)
+        if(self.Server == None):
+            servidor_hidrometro = Socket.Server(host_server,port_server)
+            self.Server = servidor_hidrometro
+        self.Server.http_serverTCP(num_hidrometros)
 
-            
-    def AlterarDelay(self,delay):
-        self.delay = delay
 
 def main():
-    ip_host = input("Digite o IP do servidor do hidrometro: ")
-    ip_port = int(input("Digite a Porta do servidor do hidrometro: "))
+    ip_host = input("Digite o IP do servidor da nuvem: ")
+    ip_port = int(input("Digite a Porta do servidor da nuvem: "))
+    ip_api = input("Digite o IP para a API da nuvem: ")
 
-    hidrante = Hidrante.Hidrante(100,100,False,False) #Consumo Vazao Vazamento Fechado
-    hidrometro = Hidrometro(hidrante,Config.DELAY)
-
-    connect_host = input("Digite o IP em que devemos nos conectar: ")
-    connect_port = int(input("Digite a Porta em que devemos nos conectar: "))
-
-
-
+    servidor_nuvem = Nuvem()
+    os.system('cls' if os.name == 'nt' else 'clear')
+    num_hidrometros = Value('i',0)
     try:
-        server_process = Process(target=hidrometro.HidrometroClient, args=(connect_host,connect_port,)).start()
-        client_process = Process(target=hidrometro.HidrometroServer, args=(ip_host,ip_port,)).start()
+        server_process = Process(target=servidor_nuvem.NuvemServer, args=(ip_host,ip_port,num_hidrometros,)).start() #95
+        time.sleep(1)
+        server_http_process = Process(target=servidor_nuvem.NuvemServerHTTP, args=(ip_api,Config.PORT_EXTERNA,num_hidrometros,)).start() #120
     except KeyboardInterrupt:
-        pass 
+        print("Teste")
+    except Exception as err:
+        print("Erro: " + err)
     finally:
-        print("Fechando o programa")   
+        print("Iniciando o servidor")
+        print("A porta para a API lida nos arquivos de configurações foi: " + str(Config.PORT_EXTERNA))
+ 
 
 
 if __name__ == '__main__':

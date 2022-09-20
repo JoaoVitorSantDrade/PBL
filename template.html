@@ -1,17 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Meu primeiro Hello World! </title>
+    <title>Meu primeiro Hello World! </title>
 </head>
 <body>
     <h1>Olá Mundo!</h1>
     <p>Consegui ler um html!</p>
-    <form method="get">
+    <form method="get" action="change">
         <label id="id_label">Identificador: x</label> <br>
         <label for="Consumo">Consumo</label><br>
-        <input type="number" id="Consumo" name="Consumo" min="0" max="1000" step="50" value="0"><br>
+        <input type="number" id="Consumo" name="Consumo" min="0" max="1000" step="50" value="0" disabled><br>
         <label for="Vazao">Vazao</label><br>
-        <input type="range" id="Vazao" name="Vazao" min="0" max="1000" step="50" value="300"><br>
+        <input type="number" id="Vazao" name="Vazao" min="0" max="1000" step="50" value="300"><br>
+        <label for="Fechado">Vazamento</label><br>
+        <input type="radio" id="VazandoF" name="Vazamento" value="False" checked="checked">
+        <label for="VazandoF">Sem Vazamento</label>
+        <input type="radio" id="VazandoT" name="Vazamento" value="True">
+        <label for="VazandoT">Com Vazamento</label> <br>
+        <label for="Fechado">Hidrometro</label><br>
+        <input type="radio" id="Fechado" name="Fechado" value="False" checked="checked">
+        <label for="Fechado">Fechado</label>
+        <input type="radio" id="Aberto" name="Fechado" value="True">
+        <label for="Aberto">Aberto</label> <br>
+        <input type="submit">
+    </form>
+    <form method="get" action="mudar">
+        <label id="id_label">Identificador: x</label> <br>
+        <label for="Consumo">Consumo</label><br>
+        <input type="number" id="Consumo" name="Consumo" min="0" max="1000" step="50" value="0" disabled><br>
+        <label for="Vazao">Vazao</label><br>
+        <input type="number" id="Vazao" name="Vazao" min="0" max="1000" step="50" value="300"><br>
         <label for="Fechado">Vazamento</label><br>
         <input type="radio" id="VazandoF" name="Vazamento" value="False" checked="checked">
         <label for="VazandoF">Sem Vazamento</label>

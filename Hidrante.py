@@ -1,54 +1,48 @@
 import json
 import Config
+from multiprocessing import Process
+from random import seed
+from random import randint
+import time
 
 class Hidrante:
-    id = 0
-
+    
     def __init__(self,consumo,vazao,vazamento,fechado):
+        self.mes = 9
+        self.ano = 2022
+        self.historico = {}
         self.consumo = consumo
         self.vazao = vazao
         self.vazamento = vazamento
         self.fechado = fechado
-        self.id = Hidrante.id
-        Hidrante.id = Hidrante.id + 1
+        seed(time.time())
+        self.id = randint(0,100000)
 
-    def AlterarConsumo(self,consumo):
-        self.consumo = consumo
+    def ContabilizarConsumo(self,TempoPassado):
+            self.consumo += self.vazao*TempoPassado
 
-    def AlterarVazao(self,vazao):
-        self.vazao = vazao
-
-    def AlterarVazamento(self,vazamento):
-        self.vazamento = vazamento
-
-    def AlterarFechado(self,fechado):
-        self.fechado = fechado
-        
-    def getConsumo(self):
-        return self.consumo
-
-    def getVazao(self):
-        return self.vazao
-
-    def getVazamento(self):
-        return self.vazamento
-
-    def getFechado(self):
-        return self.fechado
-
-    def getID(self):
-        return self.id
-        
+    def GerarBoleto(self):
+        valor = self.consumo * 10.69
+        valor_consumo = (valor,self.consumo)
+        self.historico[self.mes,self.ano] = valor_consumo
+        if(self.mes == 12):
+            self.mes = 0
+            self.ano = self.ano + 1
+        self.mes = self.mes + 1
+        return valor_consumo
+           
     def getDadoJSON(self):
         x = {
             "ID": self.id,
             "consumo": self.consumo,
             "vazao": self.vazao,
             "vazamento": self.vazamento,
-            "fechado": self.fechado
+            "fechado": self.fechado,
+            "mes": self.mes,
+            "ano": self.ano,
+            "historico": self.historico
         }
         x = json.dumps(x)
-        #print(x)
         return x
 
     def setDadoJson(self,Json):
@@ -56,3 +50,7 @@ class Hidrante:
         self.vazao = Json["vazao"]
         self.vazamento = Json["vazamento"]
         self.fechado = Json["fechado"]
+
+if __name__ == '__main__':
+    hidro = Hidrante(0,25,False,False)
+    hidro.run(Config.CONSUMO_DELAY)
