@@ -20,15 +20,15 @@ class Client:
         self.host = host
         self.port = port
 
-    def connect_sock(self):
+    def connect_sock(self): # Cria e configura um socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #TCP
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         servidor = (self.host, self.port)
         print("Cliente conectando no endereço %s:%s " % servidor)
         return sock, servidor
 
-    def connect_to_server(self,servidor,sock):
-        sock.settimeout(10)
+    def connect_to_server(self,servidor,sock): # Conecta o socket em um servidor
+        sock.settimeout(10) 
         sock.connect(servidor)
         sock.settimeout(None)
         return sock
@@ -40,22 +40,8 @@ class Client:
             try:
                 
                 sock = Client.connect_to_server(self,servidor,sock)
-                x = Hidrante.getDadoJSON()
-                message = x #Config.TEST_MESSAGE
-                print(x)
+                message = Hidrante.getDadoJSON()
                 sock.sendall(message.encode())
-
-                amount_received = 0
-                amount_expected = len(message)
-
-                dado = None
-                while amount_received < amount_expected:
-                    dado = sock.recv(Config.PACKET_SIZE)
-                    amount_received += len(dado)
-
-                dado = dado.decode() # Decodifica o Json (string) recebido do servidor
-                dado = json.loads(dado) # Carrega a string em um Json
-
 
             except ConnectionError as e:
                 print("Erro na conexão: %s" %str(e))
@@ -76,18 +62,6 @@ class Client:
             sock = Client.connect_to_server(self,servidor,sock)
             sock.sendall(bytes.encode())
 
-            amount_received = 0
-            amount_expected = len(bytes)
-
-            dado = None
-            while amount_received < amount_expected:
-                dado = sock.recv(Config.PACKET_SIZE)
-                amount_received += len(dado)
-
-            dado = dado.decode() # Decodifica o Json (string) recebido do servidor
-            dado = json.loads(dado) # Carrega a string em um Json
-            print("Recebido: %s" %dado) #Cliente recebendo dados do servidor
-
         except ConnectionError as e:
             print("Erro na conexão: %s" %str(e))
         except TimeoutError as te:
@@ -103,8 +77,6 @@ class Server:
     def __init__(self,host,port):
         self.host = host
         self.port = port
-        self.hid_list = {} #Guarda dados dos hidrometros
-        self.ip_list = []
 
     def serverTCP_hidrometro(self,hidrante): #Receber requisições da Nuvem
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -131,7 +103,7 @@ class Server:
                 print("O tempo de espera do servidor foi excedido! - %s" % errt)
                 break
 
-    def serverTCP_nuvem(self,num_hidrometros): #Receber requisições dos Hidrometros
+    def serverTCP_nuvem(self,lista_hidrometros): #Receber requisições dos Hidrometros
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         servidor = (self.host, self.port)
@@ -146,26 +118,19 @@ class Server:
                 client,adress = sock.accept() #Espera receber algum pacote json
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
-                   
                     client_adress = client.getpeername()
-                    client.send(data)  #Reenviamos os bytes do Json
                     data = data.decode() #Decodificamos os bytes utf-8
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
                     client_ip = {"IP":client_adress[0]}
                     data.update(client_ip)
-                    self.add_to_list(data) #Passamos o Json para ser adicionado a lista de Hidrantes do servidor
-                    print(len(self.hid_list))
-                    self.size = len(self.hid_list)
-                    num_hidrometros.value = self.size
-                    
+                    lista_hidrometros[data["ID"]] = json.dumps(data)
                     client.close()
             
             except TimeoutError as errt: 
                 print("O tempo de espera do servidor foi excedido! - %s" % errt)
-                print(self.hid_list)
                 break
 
-    def http_serverTCP(self,num_hidrometros):
+    def http_serverTCP(self,lista_hidrometros,host_server):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         servidor = (self.host, self.port)
@@ -184,12 +149,24 @@ class Server:
                     request_head, request_body = request.split('\n\n', 1)
                     print("Head do request:\n%s " % request_head)
                     print("Body do request:\n%s" % request_body)
-                    self.size = num_hidrometros.value
-                    print("O tamanho eh: " + str(self.size))
 
-                    if self.size > 0:
-                        if "GET" in request_head:
-                            self.GET_response(request_head)
+                    horario = datetime.now().strftime("%H:%M:%S")
+                    response = Server.http_header(horario,host_server,"application/json; charset=utf-8")
+
+                    if len(lista_hidrometros) > 0:
+                        jsonDict = lista_hidrometros._getvalue() #Pega o valor do dictProxy
+                        if "GET" in request_head: #Se for uma GET
+                            url = self.particionarRequest(request_head) #Separa os valores da url
+                            if self.has_numbers(url): #Se tiver um numero = ID
+                                if "historico" in url: #Pega o historico do hidrometro especifico
+                                    pass
+                                elif "boleto" in url: #Pega o boleto do hidrometro especifico
+                                    pass
+                                else: #Pega o hidrometro em geral
+                                    jsonDoc = self.build_json_only(jsonDict,url)
+                            else:
+                                jsonDoc = self.build_json(jsonDict)
+
                         elif "POST" in request_head:
                             self.POST_response(request_head)
                         elif "PUT" in request_head:
@@ -198,16 +175,9 @@ class Server:
                             self.PATCH_response(request_head)
                         elif "DELETE" in request_head:
                             self.DELETE_response()
+                    
+                    response = response + jsonDoc #Concatena o header com o json criado e o envia para quem fez a requisição
 
-                        for x in range(len(Server.hid_list)):
-                            obj = self.hid_list[x]
-                            js = json.loads(obj)
-                            print(js["consumo"])
-
-                    horario = datetime.now().strftime("%H:%M:%S")
-                    response = Server.http_header(horario,Config.HOST_EXTERNA,"text/html; charset=utf-8")
-                    html_template = codecs.open("template.html", 'r','utf-8').read()
-                    response = response + html_template
                     client.sendall(response.encode("utf-8"))
                     client.close()
 
@@ -215,28 +185,45 @@ class Server:
                 print("O tempo de espera do servidor HTTP foi excedido! - %s" % errt)
                 break
 
+    def has_numbers(self,inputString):
+        return any(char.isdigit() for char in inputString)
+
+    def build_json_only(self,dict,key_number):
+        jsonDoc = "["
+        for key, value in dict.items(): #Itera sobre os elementos do dicionario e os adiciona no json
+            doc = json.loads(value) # Carrega o json de uma string
+            if key_number == str(doc["ID"]): #Compara a URL cm o ID de um json, se for igual, adiciona esse Json no texto
+                jsonDoc = jsonDoc + value
+                break
+        jsonDoc = jsonDoc + "]"
+        return jsonDoc
+
+    def build_json(self,dict):
+        jsonDoc = "["
+        for key, value in dict.items(): #Itera sobre os elementos do dicionario e os adiciona no json
+            jsonDoc = jsonDoc + value
+            jsonList = list(dict)
+            if jsonList[-1] != key: #Adicionar virgula somente se não for o ultimo elemento do dicionario
+                jsonDoc = jsonDoc + ","
+        jsonDoc = jsonDoc + "]"
+        return jsonDoc
+
     def http_header(Date,Servidor,Content_type):
-        return "HTTP/1.1 200 OK \r\nDate: "+ Date +"\r\nServer: "+ Servidor +"\r\nContent-Type: "+Content_type+"\r\n\r\n"
+        return "HTTP/1.1 200 OK \r\nDate: "+ Date +"\r\nServer: "+ Servidor +"\r\nContent-Type: "+Content_type+"\r\nConnection: Keep-Alive" + "\r\n\r\n"
         
     def normalize_line_endings(s):
         return ''.join((line + '\n') for line in s.splitlines())
 
-    def particionarReferer(self,request):
-        aft = request.partition("Vazao=")[2]
-        vazao,at,aft = aft.partition("&")
-        aft = aft.partition("Vazamento=")[2]
-        vazamento,at,aft = aft.partition("&")
-        aft = aft.partition("Fechado=")[2]
-        fechado,at,aft = aft.partition("\n")
-
-        turple = (vazao,vazamento,fechado)
-
-        return turple
+    def particionarRequest(self,request):
+        aft = request.partition("/")[2]
+        link_html,at,aft = aft.partition(" HTTP")
+        if link_html != None:
+            return link_html
 
     def GET_response(self,request):
 
-        turple = self.particionarReferer(request)
-        return turple
+        resp = self.particionarRequest(request)
+        return resp
 
 
     def POST_response(self,request):
@@ -250,10 +237,6 @@ class Server:
 
     def DELETE_response(self,request):
         pass
-
-    def add_to_list(self,Json):
-        self.hid_list[Json["ID"]] = json.dumps(Json) # Salva o Json em formato string numa Lista
-        
 
 if __name__ == '__main__':
     servidor = Server(Config.HOST,Config.PORT)

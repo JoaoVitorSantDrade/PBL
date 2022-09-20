@@ -10,5 +10,6 @@ TIMEOUT = 120 # Tempo de timeout em segundos
 TIMEOUT_EXTERNO = 120
 PACKET_SIZE = 512 # Tamanho de cada pacote
 TEST_MESSAGE = "Testando o envio de strings"
-DELAY = 10
+DELAY = 2
 CONSUMO_DELAY = 10
+TICKS_TO_GENERATE_PAYMENT = (30 / DELAY)

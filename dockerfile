@@ -7,4 +7,4 @@ ADD Hidrometro.py .
 ADD Nuvem.py .
 ADD template.html .
 
-CMD ["python","./Hidrometro.py"]
+CMD ["python","./Nuvem.py"]
