@@ -54,6 +54,7 @@ class Nuvem:
                 os.system('cls' if os.name == 'nt' else 'clear')
 
             elif escolha == 3:
+                os.system('cls' if os.name == 'nt' else 'clear')
                 resp = 0
                 selector = input("Digite o ID do hidrometro que deseja abrir: ")
                 if not selector.isnumeric():
@@ -81,6 +82,7 @@ class Nuvem:
 
 
             elif escolha == 4:
+                os.system('cls' if os.name == 'nt' else 'clear')
                 resp = 0
                 selector = input("Digite o ID do hidrometro que deseja fechar: ")
                 if not selector.isnumeric():
@@ -157,6 +159,29 @@ class Nuvem:
 
             elif escolha == 7:
                 os.system('cls' if os.name == 'nt' else 'clear')
+                resp = 0
+                selector = input("Digite o ID do hidrometro que deseja ver o historico: ")
+                if not selector.isnumeric():
+                    selector = -1
+                else:
+                    try:
+                        f = open("historico/hidrometro-"+selector+".txt","rb")
+                        contador = 1
+                        while True:
+                            Json = f.readline()
+                            if not Json:
+                                input("Todo o historico para o hidrometro requisitado foi mostrado\nPressione qualquer tecla para retornar...")
+                                break
+                            else:
+                                Json = json.loads(Json)
+                                variables = (contador,str(Json["date"]),str(Json["consumo"]),str(Json["vazao"]),str(Json["vazamento"]),str(Json["vazamento_vazao"]),str(Json["fechado"]),str(Json["delay"]))
+                                print("<%i> - %s | consumo: %sm³ - vazão: %sm³/s | vazamento: %s - vazão do vazamento: %sm³/s | fechado: %s | intervalo: %s" % variables)
+                                contador = contador + 1
+                        f.close()
+                    except FileNotFoundError as fnfe:
+                        input("Não foi encontrado um historico para o hidrometro requisitado\nPressione qualquer tecla para retornar...")
+                os.system('cls' if os.name == 'nt' else 'clear')
+
 
             elif escolha == 8:
                 os.system('cls' if os.name == 'nt' else 'clear')

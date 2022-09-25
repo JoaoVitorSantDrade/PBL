@@ -1,4 +1,5 @@
 from shutil import ExecError
+from threading import local
 import Hidrante
 import Socket
 import Config
@@ -6,6 +7,7 @@ from multiprocessing import Process, Manager
 import time
 import os
 import json
+from time import localtime, strftime
 
 class Hidrometro:
     
@@ -37,8 +39,10 @@ class Hidrometro:
                 print("Erro na conexão do hidrometro - " + err)
             print("Conexão finalzada!")
             
+
             lista = hidrometro_conectado._getvalue()
             Json = json.loads(lista[0])
+            #self.SaveHistorico(Json)
             self.hidrante.vazamento_valor = Json["vazamento_valor"]
             self.hidrante.consumo = Json["consumo"]
             self.hidrante.vazao = Json["vazao"]
@@ -48,6 +52,22 @@ class Hidrometro:
 
             print("Consumo Atual: %s | Vazão Atual: %s | Vazamento Atual: %s" % (str(self.hidrante.consumo),str(self.hidrante.vazao),str(self.hidrante.vazamento_valor)))
             time.sleep(self.hidrante.delay)
+
+    def SaveHistorico(self,Json):
+        title = str(Json["ID"])
+        x = {
+            "ID": Json["ID"],
+            "date": strftime("%d-%m-%Y %H:%M:%S", localtime()),
+            "consumo": Json["consumo"],
+            "vazao": Json["vazao"],
+            "vazamento": Json["vazamento"],
+            "vazamento_vazao": Json["vazamento_valor"],
+            "fechado": Json["fechado"],
+        }
+        x = json.dumps(x)
+        file = open('historico/hidrometro-'+ title + '.joao', 'ab')
+        file.write((x+"\n").encode())
+        file.close()
 
 def main():
 
@@ -59,7 +79,7 @@ def main():
 
     os.system('cls' if os.name == 'nt' else 'clear')
 
-    hidro = Hidrante.Hidrante(0,0,False,0.0,True,0.5)
+    hidro = Hidrante.Hidrante(0,0,False,0.0,True,4)
 
     hidrometro = Hidrometro(hidro)
 

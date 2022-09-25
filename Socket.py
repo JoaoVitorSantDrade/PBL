@@ -8,6 +8,8 @@ import codecs
 from Hidrante import Hidrante
 import asyncio
 from multiprocessing import Process, Value, Array
+from time import localtime, strftime
+
 
 class Client:
     payload_size = Config.PAYLOAD_SIZE
@@ -139,6 +141,9 @@ class Server:
                         data.update(estado3)
                         data.update(estado4)
                         data.update(estado5)
+                        self.SaveHistorico(data)
+
+
 
                     lista_hidrometros[data["ID"]] = json.dumps(data)
                     data = json.dumps(data)                     
@@ -149,6 +154,22 @@ class Server:
             except TimeoutError as errt: 
                 print("O tempo de espera do servidor foi excedido! - %s" % errt)
                 break
+
+    def SaveHistorico(self,Json):
+        title = str(Json["ID"])
+        x = {
+            "date": strftime("%d-%m-%Y %H:%M:%S", localtime()),
+            "consumo": Json["consumo"],
+            "vazao": Json["vazao"],
+            "vazamento": Json["vazamento"],
+            "vazamento_vazao": Json["vazamento_valor"],
+            "fechado": Json["fechado"],
+            "delay": Json["delay"],
+        }
+        x = json.dumps(x)
+        file = open('historico/hidrometro-'+ title + '.txt', 'ab')
+        file.write((x+"\n").encode())
+        file.close()
 
     def http_serverTCP(self,lista_hidrometros,host_server):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
