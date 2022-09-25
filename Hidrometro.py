@@ -2,78 +2,84 @@ from shutil import ExecError
 import Hidrante
 import Socket
 import Config
-from multiprocessing import Process
+from multiprocessing import Process, Manager
 import time
 import os
+import json
 
 class Hidrometro:
     
-    def __init__(self,hidrante,delay):   
+    def __init__(self,hidrante):   
         self.hidrante = hidrante
-        self.delay = delay
         self.mes = 9
         self.ano = 2022
         self.historico = {}
         self.Server = None
 
-    def HidrometroServer(self,host_server,port_server): #Recebe os dados do servidor (Nuvem)
+    def HidrometroServer(self,host_server,port_server,hidrometro_conectado): #Recebe os dados do servidor (Nuvem)
         if(self.Server == None):
             servidor_hidrometro = Socket.Server(host_server,port_server)
             self.Server = servidor_hidrometro
-        servidor_hidrometro.serverTCP_hidrometro(self.hidrante)
+        servidor_hidrometro.serverTCP_hidrometro(self.hidrante,hidrometro_conectado) #Passa um HidroProxy
     
-    def HidrometroClient(self,host_to_connect,port_to_connect): #Envia os dados para o servidor (Nuvem)
+    def HidrometroClient(self,host_to_connect,port_to_connect,hidrometro_conectado): #Envia os dados para o servidor (Nuvem)
         while True: 
-            contador = 0
             print("Conexão iniciada")
-            self.hidrante.ContabilizarConsumo(self.delay)
-
-            if(contador == Config.TICKS_TO_GENERATE_PAYMENT):
-                print("Gerou boleto")
-                self.hidrante.GerarBoleto()
-                contador = 0
+            if(self.hidrante.fechado == False):
+                self.hidrante.ContabilizarConsumo()
+            else:
+                print("Hidrometro fechado - consumo não contabilizado")
 
             conexao_tcp = Socket.Client(host_to_connect,port_to_connect)
             try:
-                conexao_tcp.connect_tcp_hidrometro(self.hidrante)
-            except:
-                print("Erro na conexão do hidrometro")
+                conexao_tcp.connect_tcp_hidrometro(self.hidrante,hidrometro_conectado)
+            except Exception as err:
+                print("Erro na conexão do hidrometro - " + err)
             print("Conexão finalzada!")
-            print("Consumo Atual: "+ str(self.hidrante.consumo))
-            contador = contador + 1
-            time.sleep(self.delay)
+            
+            lista = hidrometro_conectado._getvalue()
+            Json = json.loads(lista[0])
+            self.hidrante.vazamento_valor = Json["vazamento_valor"]
+            self.hidrante.consumo = Json["consumo"]
+            self.hidrante.vazao = Json["vazao"]
+            self.hidrante.vazamento = Json["vazamento"]
+            self.hidrante.fechado = Json["fechado"]
+            self.hidrante.delay = Json["delay"]
 
-    def AlterarDelay(self,delay):
-        self.delay = delay
+            print("Consumo Atual: %s | Vazão Atual: %s | Vazamento Atual: %s" % (str(self.hidrante.consumo),str(self.hidrante.vazao),str(self.hidrante.vazamento_valor)))
+            time.sleep(self.hidrante.delay)
 
 def main():
-    flow = float(input("Digite a vazão do hidrometro: "))
+
     ip_host = input("Digite o IP do servidor do hidrometro: ")
     ip_port = int(input("Digite a Porta do servidor do hidrometro: "))
-
-    hidrante = Hidrante.Hidrante(0,flow,False,False) #Consumo Vazao Vazamento Fechado
-    hidrometro = Hidrometro(hidrante,Config.DELAY)
-
     connect_host = input("Digite o IP em que devemos nos conectar: ")
     connect_port = int(input("Digite a Porta em que devemos nos conectar: "))
 
+
     os.system('cls' if os.name == 'nt' else 'clear')
 
-    print("O seu ID é: %s\nSeu endereço é %s:%s" % (str(hidrante.id),ip_host,ip_port))
+    hidro = Hidrante.Hidrante(0,0,False,0.0,True,0.5)
 
-    #Ter dois objetos Hidrometro
+    hidrometro = Hidrometro(hidro)
 
-    try:
-        server_process = Process(target=hidrometro.HidrometroClient, args=(connect_host,connect_port,))
-        client_process = Process(target=hidrometro.HidrometroServer, args=(ip_host,ip_port,))
-        server_process.start()
-        client_process.start()
-    except KeyboardInterrupt:
-        print("Fechando os processos")   
-    finally:
-        server_process.join()
-        client_process.join()
-        print("Fechando o programa")   
+
+    print("O seu ID é: %s\nSeu endereço é %s:%s" % (str(hidro.id),ip_host,ip_port))
+
+    with Manager() as manager:
+        try:
+            hidrometro_conectado = manager.dict()
+            hidrometro_conectado[0] = hidrometro.hidrante.getDadoJSON()
+            server_process = Process(target=hidrometro.HidrometroClient, args=(connect_host,connect_port,hidrometro_conectado,))
+            client_process = Process(target=hidrometro.HidrometroServer, args=(ip_host,ip_port,hidrometro_conectado,))
+            server_process.start()
+            client_process.start()
+        except KeyboardInterrupt:
+            print("Fechando os processos")   
+        finally:
+            server_process.join()
+            client_process.join()
+            print("Fechando o programa")   
 
 
 if __name__ == '__main__':

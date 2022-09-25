@@ -7,19 +7,25 @@ import time
 
 class Hidrante:
     
-    def __init__(self,consumo,vazao,vazamento,fechado):
+    def __init__(self,consumo,vazao,vazamento,vazamento_valor,fechado,delay):
         self.mes = 9
         self.ano = 2022
         self.historico = {}
         self.consumo = consumo
         self.vazao = vazao
         self.vazamento = vazamento
+        self.vazamento_valor = vazamento_valor
         self.fechado = fechado
+        self.delay = delay
         seed(time.time())
         self.id = randint(0,100000)
 
-    def ContabilizarConsumo(self,TempoPassado):
-            self.consumo += self.vazao*TempoPassado
+    def ContabilizarConsumo(self):
+            self.consumo += (self.vazao-self.vazamento_valor)*self.delay
+            if(self.vazamento_valor > 0):
+                self.vazamento = True
+            else:
+                self.vazamento = False
 
     def GerarBoleto(self):
         valor = self.consumo * 10.69
@@ -37,7 +43,9 @@ class Hidrante:
             "consumo": self.consumo,
             "vazao": self.vazao,
             "vazamento": self.vazamento,
+            "vazamento_valor": self.vazamento_valor,
             "fechado": self.fechado,
+            "delay": self.delay,
             "mes": self.mes,
             "ano": self.ano,
             "historico": self.historico

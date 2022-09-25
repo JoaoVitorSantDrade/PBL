@@ -33,25 +33,25 @@ class Client:
         sock.settimeout(None)
         return sock
 
-    def connect_tcp_hidrometro(self, Hidrante):
+    def connect_tcp_hidrometro(self, Hidrante, Hidrometro_conectado):
 
-        if Hidrante.fechado == False:
-            sock,servidor = Client.connect_sock(self)
-            try:
-                
-                sock = Client.connect_to_server(self,servidor,sock)
-                message = Hidrante.getDadoJSON()
-                sock.sendall(message.encode())
+        sock,servidor = Client.connect_sock(self)
+        try:
+            
+            sock = Client.connect_to_server(self,servidor,sock)
+            message = Hidrante.getDadoJSON()
+            sock.sendall(message.encode())
 
-            except ConnectionError as e:
-                print("Erro na conexão: %s" %str(e))
-            except TimeoutError as te:
-                print("Conexão não foi estabelecida em tempo adequado")
-            finally:
-                print("Fechando conexão com o servidor")
-                sock.close
-        else:
-            print("Hidrometro fechado - Conexão não estabelecida")
+            data = sock.recv(1024).decode()
+            data = json.loads(data)
+            Hidrometro_conectado[0] = json.dumps(data)
+            
+        except ConnectionError as e:
+            print("Erro na conexão: %s" %str(e))
+        except TimeoutError as te:
+            print("Conexão não foi estabelecida em tempo adequado")
+        finally:
+            sock.close
 
     def connect_tcp_nuvem(self, bytes):
         sock,servidor = Client.connect_sock(self)
@@ -78,7 +78,7 @@ class Server:
         self.host = host
         self.port = port
 
-    def serverTCP_hidrometro(self,hidrante): #Receber requisições da Nuvem
+    def serverTCP_hidrometro(self,hidrante,hidrometro_conectado): #Receber requisições da Nuvem
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         servidor = (self.host, self.port)
@@ -96,7 +96,7 @@ class Server:
                     client.send(data)  #Reenviamos os bytes do Json
                     data = data.decode() #Decodificamos os bytes utf-8
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
-                    hidrante.setDadoJson(data)
+                    hidrante._getvalue().setDadoJson(data)
                     client.close()
             
             except TimeoutError as errt: 
@@ -109,23 +109,43 @@ class Server:
         servidor = (self.host, self.port)
         sock.bind(servidor)
 
-        print("Servidor iniciando no endereço %s:%s" % servidor)
+        #print("Servidor iniciando no endereço %s:%s" % servidor)
         sock.listen(Config.SERVER_LISTEN)
         sock.settimeout(Config.TIMEOUT)
         while True:
             try:
-                print ("Aguardando requisições de clientes...")
+                #print ("Aguardando requisições de clientes...")
                 client,adress = sock.accept() #Espera receber algum pacote json
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
                 if data:
+                    
                     client_adress = client.getpeername()
+                    client_ip = {"IP":client_adress[0]}
+
                     data = data.decode() #Decodificamos os bytes utf-8
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
-                    client_ip = {"IP":client_adress[0]}
                     data.update(client_ip)
+
+                    if data["ID"] in lista_hidrometros._getvalue():
+                        Json = lista_hidrometros._getvalue()[data["ID"]]
+                        Json = json.loads(Json)
+                        estado = {"fechado":Json["fechado"]}
+                        estado2 = {"vazao":Json["vazao"]}
+                        estado3 = {"vazamento":Json["vazamento"]}
+                        estado4 = {"delay":Json["delay"]}
+                        estado5 = {"vazamento_valor":Json["vazamento_valor"]}
+                        data.update(estado)
+                        data.update(estado2)
+                        data.update(estado3)
+                        data.update(estado4)
+                        data.update(estado5)
+
                     lista_hidrometros[data["ID"]] = json.dumps(data)
+                    data = json.dumps(data)                     
+
+                    client.sendall(data.encode())    
                     client.close()
-            
+
             except TimeoutError as errt: 
                 print("O tempo de espera do servidor foi excedido! - %s" % errt)
                 break
@@ -136,19 +156,19 @@ class Server:
         servidor = (self.host, self.port)
         sock.bind(servidor)
 
-        print("API iniciando no endereço %s:%s" % servidor)
+        #print("API iniciando no endereço %s:%s" % servidor)
         sock.listen(Config.SERVER_LISTEN)
         sock.settimeout(Config.TIMEOUT_EXTERNO)
         while True:
             try:
-                print ("Aguardando requisições http...\n\n")
+                #print ("Aguardando requisições http...\n\n")
                 client, address = sock.accept() #Espera receber algum pacote
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de uma requisição http
                 if data:
                     request = Server.normalize_line_endings(data.decode()) 
                     request_head, request_body = request.split('\n\n', 1)
-                    print("Head do request:\n%s " % request_head)
-                    print("Body do request:\n%s" % request_body)
+                    #print("Head do request:\n%s " % request_head)
+                    #print("Body do request:\n%s" % request_body)
 
                     horario = datetime.now().strftime("%H:%M:%S")
                     response = Server.http_header(horario,host_server,"application/json; charset=utf-8")
