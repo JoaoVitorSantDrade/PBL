@@ -16,7 +16,7 @@ class Nuvem:
     def HidrometroInterface(self,num_hidrometros):
         print("Bem vindo ao painel de controles dos hidrometros!")
         while True:
-            escolha = input("<1> - Ver lista de Hidrometros\n<2> - Alterar vazão de hidrometro\n<3> - Abrir hidrometro\n<4> - Fechar hidrometro\n<5> - Alterar intervalo de envio de dados\n<6> - Vazamento de hidrometro\n<7> - Historico de hidrometro\n<8> - Boleto de hidrometro\n")
+            escolha = input("<1> - Ver lista de Hidrometros\n<2> - Alterar vazão de hidrometro\n<3> - Abrir hidrometro\n<4> - Fechar hidrometro\n<5> - Alterar intervalo de envio de dados\n<6> - Vazamento de hidrometro\n<7> - Historico de hidrometro\n<8> - Boleto de hidrometro\n<9> - Sair\n")
             if not escolha.isnumeric():
                 escolha = -1
             else:
@@ -205,7 +205,11 @@ class Nuvem:
                 else:
                     input("Hidrometro %s teve seu boleto gerado com sucesso\nValor a pagar: %.2f\nPressione qualquer tecla para retornar...\n" % (str(selector),valor_a_pagar))
                 os.system('cls' if os.name == 'nt' else 'clear')
-
+            elif escolha == 9: #Funcionando ok
+                os.system('cls' if os.name == 'nt' else 'clear')
+                print("Servidor continuará a funcionar.\nAperte CTRL + C para finalizar o servidor.\n")
+                break
+            
             else:
                 os.system('cls' if os.name == 'nt' else 'clear')
                 print("Escolha uma opção válida!\n")
@@ -226,16 +230,17 @@ class Nuvem:
 def main():
     ip_host = input("Digite o IP do servidor da nuvem e da API: ")
     ip_port = int(input("Digite a Porta do servidor da nuvem: "))
+    http_port = int(input("Digite a Porta do servidor HTTP (API): "))
 
     servidor_nuvem = Nuvem()
     os.system('cls' if os.name == 'nt' else 'clear')
-    print("A porta para a API lida nos arquivos de configurações foi: " + str(Config.PORT_EXTERNA) + "\n")
+    print("A porta para a API lida nos arquivos de configurações foi: " + str(http_port) + "\n")
 
     with Manager() as manager:
         try:
             lista_hidrometros_conectados = manager.dict()
             server_process = Process(target=servidor_nuvem.NuvemServer, args=(ip_host,ip_port,lista_hidrometros_conectados,)) #95
-            server_http_process = Process(target=servidor_nuvem.NuvemServerHTTP, args=(ip_host,Config.PORT_EXTERNA,lista_hidrometros_conectados,)) #120
+            server_http_process = Process(target=servidor_nuvem.NuvemServerHTTP, args=(ip_host,http_port,lista_hidrometros_conectados,)) #120
 
             server_http_process.start()
             server_process.start()

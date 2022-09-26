@@ -158,6 +158,7 @@ class Server:
     def SaveHistorico(self,Json):
         title = str(Json["ID"])
         x = {
+            "ID": Json["ID"],
             "date": strftime("%d-%m-%Y %H:%M:%S", localtime()),
             "consumo": Json["consumo"],
             "vazao": Json["vazao"],
@@ -196,28 +197,71 @@ class Server:
 
                     if len(lista_hidrometros) > 0:
                         jsonDict = lista_hidrometros._getvalue() #Pega o valor do dictProxy
+                        jsonDoc = '{}'
                         if "GET" in request_head: #Se for uma GET
                             url = self.particionarRequest(request_head) #Separa os valores da url
-                            if self.has_numbers(url): #Se tiver um numero = ID
-                                if "historico" in url: #Pega o historico do hidrometro especifico
-                                    pass
-                                elif "boleto" in url: #Pega o boleto do hidrometro especifico
-                                    pass
+                            url2 = self.particionarRequest2(url)
+
+                            if self.has_numbers(url2[0]): #Se tiver um numero = ID
+
+                                if "historico" in url2[1]: #Pega o historico do hidrometro especifico
+                                    jsonDoc = self.build_json_historico(url2[0])
+
+                                elif "boleto" in url2[1]: #Pega o boleto do hidrometro especifico
+                                    jsonDoc = self.build_json_boleto(jsonDict,url2[0])
+
+                                elif "fechar" in url2[1]:
+                                    if int(url2[0]) in lista_hidrometros._getvalue():
+                                        Json = lista_hidrometros._getvalue()[int(url2[0])]
+                                        Json = json.loads(Json)
+                                        estado = {"fechado":True}
+                                        Json.update(estado)
+                                        lista_hidrometros[int(url2[0])] = json.dumps(Json)
+                                        jsonDoc = json.dumps(Json)
+
+                                elif "abrir" in url2[1]:
+                                    if int(url2[0]) in lista_hidrometros._getvalue():
+                                        Json = lista_hidrometros._getvalue()[int(url2[0])]
+                                        Json = json.loads(Json)
+                                        estado = {"fechado":False}
+                                        Json.update(estado)
+                                        lista_hidrometros[int(url2[0])] = json.dumps(Json)
+                                        jsonDoc = json.dumps(Json)
+
+                                elif "vazao" in url2[1]:
+                                    url3 = self.particionarRequest2(url2[1])
+                                    try:
+                                        v = float(url3[1])
+                                        if int(url2[0]) in lista_hidrometros._getvalue():
+                                            Json = lista_hidrometros._getvalue()[int(url2[0])]
+                                            Json = json.loads(Json)
+                                            estado = {"vazao":v}
+                                            Json.update(estado)
+                                            lista_hidrometros[int(url2[0])] = json.dumps(Json)
+                                            jsonDoc = json.dumps(Json)
+                                    except ValueError:
+                                        pass
+
+                                elif "intervalo" in url2[1]:
+                                    url3 = self.particionarRequest2(url2[1])
+                                    try:
+                                        v = float(url3[1])
+                                        if int(url2[0]) in lista_hidrometros._getvalue():
+                                            Json = lista_hidrometros._getvalue()[int(url2[0])]
+                                            Json = json.loads(Json)
+                                            estado = {"delay":v}
+                                            Json.update(estado)
+                                            lista_hidrometros[int(url2[0])] = json.dumps(Json)
+                                            jsonDoc = json.dumps(Json)
+                                    except ValueError:
+                                        pass
                                 else: #Pega o hidrometro em geral
                                     jsonDoc = self.build_json_only(jsonDict,url)
                             else:
                                 jsonDoc = self.build_json(jsonDict)
-
-                        elif "POST" in request_head:
-                            self.POST_response(request_head)
-                        elif "PUT" in request_head:
-                            self.PUT_response(request_head)
                         elif "PATCH" in request_head:
                             self.PATCH_response(request_head)
-                        elif "DELETE" in request_head:
-                            self.DELETE_response()
-                    
-                    response = response + jsonDoc #Concatena o header com o json criado e o envia para quem fez a requisição
+                        response = response + jsonDoc #Concatena o header com o json criado e o envia para quem fez a requisição
 
                     client.sendall(response.encode("utf-8"))
                     client.close()
@@ -228,6 +272,45 @@ class Server:
 
     def has_numbers(self,inputString):
         return any(char.isdigit() for char in inputString)
+
+    def build_json_boleto(self,dict,key_number):
+        jsonDoc = "["
+        for key, value in dict.items(): #Itera sobre os elementos do dicionario e os adiciona no json
+            doc = json.loads(value) # Carrega o json de uma string
+            if key_number == str(doc["ID"]): #Compara a URL cm o ID de um json, se for igual, adiciona esse Json no texto
+                x = {
+                    "ID": doc["ID"],
+                    "consumo": doc["consumo"],
+                    "valor": (doc["consumo"]*0.132),
+                }
+                x = json.dumps(x)
+                jsonDoc = jsonDoc + x
+                break
+        jsonDoc = jsonDoc + "]"
+        return jsonDoc
+
+    def build_json_historico(self,key_number):
+        contador = 0
+        jsonDoc = "["
+        try:
+            f = open("historico/hidrometro-"+key_number+".txt","rb")
+            contador = 1
+            while True:
+                Json = f.readline()
+                if not Json:
+                    break
+                else:
+                    Json = json.loads(Json)
+                    jsonDoc = jsonDoc + str(contador) +" = " + json.dumps(Json) + ","
+                    contador = contador + 1
+            f.close()
+        except FileNotFoundError as fnfe:
+            input("Não foi encontrado um historico para o hidrometro requisitado\nPressione qualquer tecla para retornar...")
+            #ler aquivo com o ID
+            #Salvar cada linha lida como um json diferente
+            #Concatenar tudo no json final
+        jsonDoc = jsonDoc + "]"
+        return jsonDoc
 
     def build_json_only(self,dict,key_number):
         jsonDoc = "["
@@ -260,6 +343,11 @@ class Server:
         link_html,at,aft = aft.partition(" HTTP")
         if link_html != None:
             return link_html
+
+    def particionarRequest2(self,request):
+        number,barra,nome = request.partition("/")
+        if number != None:
+            return (number,nome)
 
     def GET_response(self,request):
 
