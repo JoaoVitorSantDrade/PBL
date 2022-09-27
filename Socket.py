@@ -25,7 +25,7 @@ class Client:
     def connect_sock(self): # Cria e configura um socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #TCP
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-        servidor = (self.host, self.port)
+        servidor = (self.host, self.port) # Endereço e Portas para se conectar
         print("Cliente conectando no endereço %s:%s " % servidor)
         return sock, servidor
 
@@ -42,7 +42,7 @@ class Client:
             
             sock = Client.connect_to_server(self,servidor,sock)
             message = Hidrante.getDadoJSON()
-            sock.sendall(message.encode())
+            sock.sendall(message.encode()) # Envia mensagem
 
             data = sock.recv(1024).decode()
             data = json.loads(data)
@@ -55,23 +55,6 @@ class Client:
         finally:
             sock.close
 
-    def connect_tcp_nuvem(self, bytes):
-        sock,servidor = Client.connect_sock(self)
-        try:
-
-            bytes = bytes.decode()
-            print(bytes)
-            sock = Client.connect_to_server(self,servidor,sock)
-            sock.sendall(bytes.encode())
-
-        except ConnectionError as e:
-            print("Erro na conexão: %s" %str(e))
-        except TimeoutError as te:
-            print("Conexão não foi estabelecida em tempo adequado")
-        finally:
-            print("Fechando conexão com o servidor")
-            sock.close
-
 class Server:
     payload_size = Config.PAYLOAD_SIZE
     
@@ -80,31 +63,6 @@ class Server:
         self.host = host
         self.port = port
 
-    def serverTCP_hidrometro(self,hidrante,hidrometro_conectado): #Receber requisições da Nuvem
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-        servidor = (self.host, self.port)
-        sock.bind(servidor)
-
-        print("Servidor iniciando no endereço %s:%s" % servidor)
-        sock.listen(Config.SERVER_LISTEN)
-        sock.settimeout(Config.TIMEOUT)
-        while True:
-            try:
-                print ("Aguardando mensagens de clientes...")
-                client,adress = sock.accept() #Espera receber algum pacote
-                data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de um Json encoded em utf-8
-                if data:
-                    client.send(data)  #Reenviamos os bytes do Json
-                    data = data.decode() #Decodificamos os bytes utf-8
-                    data = json.loads(data) #Carregamos os bytes dentro de um Json
-                    hidrante._getvalue().setDadoJson(data)
-                    client.close()
-            
-            except TimeoutError as errt: 
-                print("O tempo de espera do servidor foi excedido! - %s" % errt)
-                break
-
     def serverTCP_nuvem(self,lista_hidrometros): #Receber requisições dos Hidrometros
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
@@ -112,8 +70,8 @@ class Server:
         sock.bind(servidor)
 
         #print("Servidor iniciando no endereço %s:%s" % servidor)
-        sock.listen(Config.SERVER_LISTEN)
-        sock.settimeout(Config.TIMEOUT)
+        sock.listen(Config.SERVER_LISTEN) #escuta até 32 hidrometros diferentes
+        sock.settimeout(Config.TIMEOUT) 
         while True:
             try:
                 #print ("Aguardando requisições de clientes...")
@@ -128,6 +86,7 @@ class Server:
                     data = json.loads(data) #Carregamos os bytes dentro de um Json
                     data.update(client_ip)
 
+                    #Atualiza e sincroniza os dados dos hidrometros com o servidor 
                     if data["ID"] in lista_hidrometros._getvalue():
                         Json = lista_hidrometros._getvalue()[data["ID"]]
                         Json = json.loads(Json)
@@ -148,14 +107,14 @@ class Server:
                     lista_hidrometros[data["ID"]] = json.dumps(data)
                     data = json.dumps(data)                     
 
-                    client.sendall(data.encode())    
+                    client.sendall(data.encode()) #Envia os dados para o hidrometro
                     client.close()
 
             except TimeoutError as errt: 
                 print("O tempo de espera do servidor foi excedido! - %s" % errt)
                 break
 
-    def SaveHistorico(self,Json):
+    def SaveHistorico(self,Json): #Salva o histórico num arquivo txt
         title = str(Json["ID"])
         x = {
             "ID": Json["ID"],
@@ -172,25 +131,21 @@ class Server:
         file.write((x+"\n").encode())
         file.close()
 
-    def http_serverTCP(self,lista_hidrometros,host_server):
+    def http_serverTCP(self,lista_hidrometros,host_server): #Servidor da API
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         servidor = (self.host, self.port)
         sock.bind(servidor)
 
-        #print("API iniciando no endereço %s:%s" % servidor)
         sock.listen(Config.SERVER_LISTEN)
         sock.settimeout(Config.TIMEOUT_EXTERNO)
         while True:
             try:
-                #print ("Aguardando requisições http...\n\n")
                 client, address = sock.accept() #Espera receber algum pacote
                 data = client.recv(Config.PAYLOAD_SIZE) #Recebemos bytes de uma requisição http
                 if data:
                     request = Server.normalize_line_endings(data.decode()) 
-                    request_head, request_body = request.split('\n\n', 1)
-                    #print("Head do request:\n%s " % request_head)
-                    #print("Body do request:\n%s" % request_body)
+                    request_head, request_body = request.split('\n\n', 1) #Separamos a requisição em Header e body
 
                     horario = datetime.now().strftime("%H:%M:%S")
                     response = Server.http_header(horario,host_server,"application/json; charset=utf-8")
@@ -210,7 +165,7 @@ class Server:
                                 elif "boleto" in url2[1]: #Pega o boleto do hidrometro especifico
                                     jsonDoc = self.build_json_boleto(jsonDict,url2[0])
 
-                                elif "fechar" in url2[1]:
+                                elif "fechar" in url2[1]: #Fecha um hidrometro específico
                                     if int(url2[0]) in lista_hidrometros._getvalue():
                                         Json = lista_hidrometros._getvalue()[int(url2[0])]
                                         Json = json.loads(Json)
@@ -219,7 +174,7 @@ class Server:
                                         lista_hidrometros[int(url2[0])] = json.dumps(Json)
                                         jsonDoc = json.dumps(Json)
 
-                                elif "abrir" in url2[1]:
+                                elif "abrir" in url2[1]: #Abre um hidrometro específico
                                     if int(url2[0]) in lista_hidrometros._getvalue():
                                         Json = lista_hidrometros._getvalue()[int(url2[0])]
                                         Json = json.loads(Json)
@@ -228,7 +183,7 @@ class Server:
                                         lista_hidrometros[int(url2[0])] = json.dumps(Json)
                                         jsonDoc = json.dumps(Json)
 
-                                elif "vazao" in url2[1]:
+                                elif "vazao" in url2[1]: #Altra a vazao de um hidrometro específico
                                     url3 = self.particionarRequest2(url2[1])
                                     try:
                                         v = float(url3[1])
@@ -242,7 +197,7 @@ class Server:
                                     except ValueError:
                                         pass
 
-                                elif "intervalo" in url2[1]:
+                                elif "intervalo" in url2[1]: #Altera o intervalo de envio de mensagens de um hidrometro específico
                                     url3 = self.particionarRequest2(url2[1])
                                     try:
                                         v = float(url3[1])
@@ -259,21 +214,20 @@ class Server:
                                     jsonDoc = self.build_json_only(jsonDict,url)
                             else:
                                 jsonDoc = self.build_json(jsonDict)
-                        elif "PATCH" in request_head:
-                            self.PATCH_response(request_head)
+
                         response = response + jsonDoc #Concatena o header com o json criado e o envia para quem fez a requisição
 
-                    client.sendall(response.encode("utf-8"))
+                    client.sendall(response.encode("utf-8")) #Envia a nossa resposta a requisição http
                     client.close()
 
             except TimeoutError as errt: 
                 print("O tempo de espera do servidor HTTP foi excedido! - %s" % errt)
                 break
 
-    def has_numbers(self,inputString):
+    def has_numbers(self,inputString): #Verifica se na string existe numeros
         return any(char.isdigit() for char in inputString)
 
-    def build_json_boleto(self,dict,key_number):
+    def build_json_boleto(self,dict,key_number): #Cria um json com o valo do consumo do hidrometro
         jsonDoc = "["
         for key, value in dict.items(): #Itera sobre os elementos do dicionario e os adiciona no json
             doc = json.loads(value) # Carrega o json de uma string
@@ -289,7 +243,7 @@ class Server:
         jsonDoc = jsonDoc + "]"
         return jsonDoc
 
-    def build_json_historico(self,key_number):
+    def build_json_historico(self,key_number): #Cria um json com o histórico de um hidrometro especifico
         contador = 0
         jsonDoc = "["
         try:
@@ -305,14 +259,14 @@ class Server:
                     contador = contador + 1
             f.close()
         except FileNotFoundError as fnfe:
-            input("Não foi encontrado um historico para o hidrometro requisitado\nPressione qualquer tecla para retornar...")
+            pass
             #ler aquivo com o ID
             #Salvar cada linha lida como um json diferente
             #Concatenar tudo no json final
         jsonDoc = jsonDoc + "]"
         return jsonDoc
 
-    def build_json_only(self,dict,key_number):
+    def build_json_only(self,dict,key_number): # Cria o json de um unico hidrometro
         jsonDoc = "["
         for key, value in dict.items(): #Itera sobre os elementos do dicionario e os adiciona no json
             doc = json.loads(value) # Carrega o json de uma string
@@ -322,7 +276,7 @@ class Server:
         jsonDoc = jsonDoc + "]"
         return jsonDoc
 
-    def build_json(self,dict):
+    def build_json(self,dict): # Cria um json cm todos os hidrometros que já se conectaram
         jsonDoc = "["
         for key, value in dict.items(): #Itera sobre os elementos do dicionario e os adiciona no json
             jsonDoc = jsonDoc + value
@@ -332,7 +286,7 @@ class Server:
         jsonDoc = jsonDoc + "]"
         return jsonDoc
 
-    def http_header(Date,Servidor,Content_type):
+    def http_header(Date,Servidor,Content_type): # Cria um header de resposta http
         return "HTTP/1.1 200 OK \r\nDate: "+ Date +"\r\nServer: "+ Servidor +"\r\nContent-Type: "+Content_type+"\r\nConnection: Keep-Alive" + "\r\n\r\n"
         
     def normalize_line_endings(s):
@@ -349,26 +303,3 @@ class Server:
         if number != None:
             return (number,nome)
 
-    def GET_response(self,request):
-
-        resp = self.particionarRequest(request)
-        return resp
-
-
-    def POST_response(self,request):
-        pass
-
-    def PUT_response(self,request):
-        pass
-
-    def PATCH_response(self,request):
-        pass
-
-    def DELETE_response(self,request):
-        pass
-
-if __name__ == '__main__':
-    servidor = Server(Config.HOST,Config.PORT)
-    asyncio.run(
-        servidor.serverTCP()
-    ) 

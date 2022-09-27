@@ -15,7 +15,6 @@ class Hidrometro:
         self.hidrante = hidrante
         self.mes = 9
         self.ano = 2022
-        self.historico = {}
         self.Server = None
     
     def HidrometroClient(self,host_to_connect,port_to_connect,hidrometro_conectado): #Envia os dados para o servidor (Nuvem)

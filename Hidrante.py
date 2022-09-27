@@ -10,7 +10,6 @@ class Hidrante:
     def __init__(self,consumo,vazao,vazamento,vazamento_valor,fechado,delay):
         self.mes = 9
         self.ano = 2022
-        self.historico = {}
         self.consumo = consumo
         self.vazao = vazao
         self.vazamento = vazamento
@@ -20,24 +19,23 @@ class Hidrante:
         seed(time.time())
         self.id = randint(0,100000)
 
-    def ContabilizarConsumo(self):
+    def ContabilizarConsumo(self): #Contabiliza o consumo do hidrometro
             self.consumo += (self.vazao-self.vazamento_valor)*self.delay
             if(self.vazamento_valor > 0):
                 self.vazamento = True
             else:
                 self.vazamento = False
 
-    def GerarBoleto(self):
+    def GerarBoleto(self): # Gera o boleto do hidrometro
         valor = self.consumo * 10.69
         valor_consumo = (valor,self.consumo)
-        self.historico[self.mes,self.ano] = valor_consumo
         if(self.mes == 12):
             self.mes = 0
             self.ano = self.ano + 1
         self.mes = self.mes + 1
         return valor_consumo
            
-    def getDadoJSON(self):
+    def getDadoJSON(self): #Pega os dados do hidrometro e os transforma num Json
         x = {
             "ID": self.id,
             "consumo": self.consumo,
@@ -48,16 +46,9 @@ class Hidrante:
             "delay": self.delay,
             "mes": self.mes,
             "ano": self.ano,
-            "historico": self.historico
         }
         x = json.dumps(x)
         return x
-
-    def setDadoJson(self,Json):
-        self.consumo = Json["consumo"]
-        self.vazao = Json["vazao"]
-        self.vazamento = Json["vazamento"]
-        self.fechado = Json["fechado"]
 
 if __name__ == '__main__':
     hidro = Hidrante(0,25,False,False)
